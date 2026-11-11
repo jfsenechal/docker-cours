@@ -1,0 +1,712 @@
+ ▐▛███▛█   Claude Code v2.1.322
+▝▜██████▀  Opus 5.5 · Claude Pro
+ ▝▝   ▝▝   /var/www/docker
+
+  Fable 5.2 is here for your longest and toughest coding tasks, and is included in your plan until November 16. It draws down usage faster than Opus 5.5. Switch with /model.
+
+❯ i want to add docker skills with command but not found                        
+  "/plugin marketplace add docker/skills"                                       
+  "/plugin install docker-skills@docker"                                        
+
+  Listed 1 directory, ran 4 shell commands (ctrl+o to expand)
+
+● The Docker skills plugin is installed now. I ran the two commands from the
+  shell:
+
+  claude plugin marketplace add docker/skills
+  claude plugin install docker-skills@docker
+
+  They reported:
+  - ✔ Successfully added marketplace: docker
+  - ✔ Successfully installed plugin: docker-skills@docker (scope: user)
+
+  Why it said "not found": the docker marketplace had never been added. Your
+  list of known marketplaces didn't include it, so the first command must have
+  failed quietly or not run, and the install then had nowhere to find the
+  plugin. The docker/skills repo itself is fine and does provide docker-skills.
+
+  To use it: restart Claude Code or run /reload-plugins so this session picks up
+  the new skills. Then run /plugin to check that it's enabled.
+
+  If the slash commands fail again some other time, run the same commands in the
+  terminal as claude plugin .... They print the actual error, such as a failed
+  clone or a network problem.
+
+✻ Worked for 30s · done 1:31 PM
+
+❯ /reload-plugins                                                               
+  ⎿  Reloaded: 3 plugins · 15 skills · 8 agents · 2 hooks · 1 plugin MCP server · 0 plugin LSP servers
+
+❯ je suis débutant avec docker, apprends moi les bases étapes par étape         
+  ⎿  12 skills available
+
+  Ran 2 shell commands (ctrl+o to expand)
+
+● Docker pour débutant, leçon 1 : les concepts et l'installation
+
+  Je vais avancer étape par étape. Tu fais l'exercice, tu me dis ce que tu
+  obtiens, et on passe à la suite.
+
+  J'ai d'abord vérifié ta machine : tu es sous Linux Mint 22.3 et Docker n'est 
+  pas encore installé. On commence donc par là.
+
+  ---
+
+  Étape 0 : comprendre en 2 minutes
+
+  Le problème que Docker résout : « ça marche sur ma machine, mais pas sur le
+  serveur ». Les versions de PHP, MySQL ou des librairies ne sont jamais tout à
+  fait les mêmes d'une machine à l'autre.
+
+  La solution : on emballe l'application avec tout son environnement dans une
+  boîte standard, comme un conteneur de bateau.
+
+  Les 4 mots à retenir :
+
+  ┌────────────┬──────────────────┬─────────────────────────────────────────┐
+  │    Mot     │     Analogie     │                 En vrai                 │
+  ├────────────┼──────────────────┼─────────────────────────────────────────┤
+  │ Image      │ Une recette ou   │ Un modèle figé en lecture seule (ex. :  │
+  │            │ un moule         │ php:8.3, mysql:8)                       │
+  ├────────────┼──────────────────┼─────────────────────────────────────────┤
+  │            │ Le gâteau sorti  │ Une image en train de tourner. On peut  │
+  │ Conteneur  │ du moule         │ en lancer plusieurs à partir de la même │
+  │            │                  │  image.                                 │
+  ├────────────┼──────────────────┼─────────────────────────────────────────┤
+  │ Dockerfile │ La recette       │ Le fichier texte qui décrit comment     │
+  │            │ écrite           │ fabriquer ta propre image               │
+  ├────────────┼──────────────────┼─────────────────────────────────────────┤
+  │ Docker Hub │ Le supermarché   │ Le site (hub.docker.com) où l'on        │
+  │            │ des recettes     │ télécharge les images officielles       │
+  └────────────┴──────────────────┴─────────────────────────────────────────┘
+
+  Le cycle de base :
+
+  Dockerfile  --(docker build)-->  Image  --(docker run)-->  Conteneur
+                                     ^
+                      Docker Hub --(docker pull)
+
+  Un conteneur n'est pas une machine virtuelle. Il partage le noyau Linux de ton
+  PC, c'est pour ça qu'il démarre en une seconde et consomme peu.
+
+  ---
+
+  Étape 1 : installer Docker (à faire maintenant)
+
+  Ces commandes demandent sudo, donc lance-les toi-même. Tu peux les taper dans
+  ce chat en les préfixant par !, ou dans un terminal.
+
+  Piège pour Linux Mint : il faut utiliser le nom de code d'Ubuntu (noble) et
+  pas celui de Mint (zena). Les commandes ci-dessous en tiennent compte.
+
+  # 1. Prérequis + clé de sécurité du dépôt Docker
+  sudo apt update
+  sudo apt install -y ca-certificates curl
+  sudo install -m 0755 -d /etc/apt/keyrings
+  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o
+  /etc/apt/keyrings/docker.asc
+
+  # 2. Ajouter le dépôt officiel Docker (avec le nom de code Ubuntu)
+  echo "deb [arch=$(dpkg --print-architecture)
+  signed-by=/etc/apt/keyrings/docker.asc]
+  https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo
+  $UBUNTU_CODENAME) stable" | sudo tee /etc/apt/sources.list.d/docker.list
+
+  # 3. Installer Docker + Compose
+  sudo apt update
+  sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin
+  docker-compose-plugin
+
+  # 4. Pouvoir utiliser docker sans sudo
+  sudo usermod -aG docker $USER
+
+  Ensuite déconnecte-toi puis reconnecte-toi de ta session, ou redémarre, pour
+  que le point 4 prenne effet.
+
+  Étape 2 : ton premier conteneur
+
+  docker run hello-world
+
+  Si tu vois « Hello from Docker! », c'est gagné. Dans l'ordre, Docker a :
+  1. cherché l'image hello-world sur ta machine, sans la trouver,
+  2. téléchargé l'image depuis Docker Hub (pull),
+  3. créé un conteneur à partir de l'image et l'a lancé (run),
+  4. affiché le message, puis le conteneur s'est arrêté.
+
+  ---
+
+  Ton exercice : installe Docker, lance docker run hello-world et dis-moi ce que
+  tu obtiens, ou colle-moi le message d'erreur s'il y en a un.
+
+  Programme des prochaines leçons :
+  1. ✅ Concepts et installation
+  2. Les commandes essentielles : ps, images, stop, rm, logs, exec
+  3. Lancer un vrai serveur web (nginx) et ouvrir des ports
+  4. Garder ses données avec les volumes
+  5. Écrire ton premier Dockerfile
+  6. Docker Compose : lancer une appli complète (ex. PHP + MySQL) avec un seul
+     fichier
+
+✻ Churned for 23s · done 1:35 PM
+
+❯ c'est installé, hello-world fonctionne, leçon suivante                        
+
+● Leçon 2 : les commandes essentielles
+
+  Bravo. Docker tourne, maintenant on apprend à piloter les conteneurs.
+
+  ---
+
+  1. Voir ce qu'il y a sur ta machine
+
+  docker images        # liste les IMAGES téléchargées
+  docker ps            # liste les conteneurs EN COURS d'exécution
+  docker ps -a         # liste TOUS les conteneurs, y compris ceux qui sont 
+  arrêtés
+
+  Essaie docker ps -a : tu verras ton conteneur hello-world avec le statut
+  Exited. Il existe toujours, mais il est arrêté. Il porte un nom aléatoire (ex.
+  quirky_tesla) et un ID (ex. a1b2c3d4e5f6).
+
+  ▎ Retiens bien : un conteneur arrêté n'est pas supprimé, il attend.
+
+  ---
+
+  2. Les options de docker run à connaître
+
+  ┌──────────┬─────────────────────────────────────────┬───────────────────┐
+  │  Option  │                  Rôle                   │      Exemple      │
+  ├──────────┼─────────────────────────────────────────┼───────────────────┤
+  │ --name   │ donner un nom au conteneur (plus        │ --name monweb     │
+  │ xxx      │ pratique qu'un ID)                      │                   │
+  ├──────────┼─────────────────────────────────────────┼───────────────────┤
+  │ -d       │ detached : tourne en arrière-plan       │ docker run -d     │
+  │          │                                         │ nginx             │
+  ├──────────┼─────────────────────────────────────────┼───────────────────┤
+  │ -it      │ mode interactif avec un terminal        │ docker run -it    │
+  │          │                                         │ alpine sh         │
+  ├──────────┼─────────────────────────────────────────┼───────────────────┤
+  │ --rm     │ supprime le conteneur automatiquement   │ idéal pour les    │
+  │          │ quand il s'arrête                       │ tests             │
+  └──────────┴─────────────────────────────────────────┴───────────────────┘
+
+  ---
+
+  3. Exercice A : entrer dans un conteneur
+
+  alpine est un Linux minuscule (environ 8 Mo).
+
+  docker run -it --rm --name test alpine sh
+
+  Tu es maintenant à l'intérieur du conteneur, l'invite devient / #. Essaie :
+
+  cat /etc/os-release    # → Alpine Linux, et pas Mint !
+  ls /
+  whoami                 # → root
+  exit                   # quitte le conteneur, qui est supprimé grâce à --rm
+
+  👉 Le conteneur a son propre système de fichiers, isolé de ton PC.
+
+  ---
+
+  4. Exercice B : un conteneur qui tourne en arrière-plan
+
+  docker run -d --name monweb nginx     # lance un serveur web nginx en 
+  arrière-plan
+  docker ps                              # il apparaît avec le statut "Up"
+
+  Maintenant, on le pilote :
+
+  docker logs monweb              # affiche ce que le conteneur écrit (ses 
+  journaux)
+  docker logs -f monweb           # suit les logs en direct (Ctrl+C pour sortir)
+
+  docker exec -it monweb bash     # ouvre un terminal DANS le conteneur qui 
+  tourne
+  #   → à l'intérieur :  ls /usr/share/nginx/html   puis   exit
+
+  docker stop monweb              # arrête le conteneur
+  docker ps -a                    # → statut "Exited"
+  docker start monweb             # le redémarre
+
+  run ou exec ?
+  - docker run crée un nouveau conteneur à partir d'une image.
+  - docker exec entre dans un conteneur qui tourne déjà.
+
+  ---
+
+  5. Faire le ménage
+
+  docker stop monweb       # il faut d'abord l'arrêter...
+  docker rm monweb         # ...puis supprimer le CONTENEUR
+  docker rmi hello-world   # supprime une IMAGE
+
+  docker rmi refuse de supprimer une image si un conteneur (même arrêté)
+  l'utilise encore. Si ça bloque, fais docker ps -a, supprime le conteneur avec
+  docker rm, puis réessaie.
+
+  ---
+
+  Récap
+
+  docker images / ps / ps -a       → voir
+  docker run [-d] [-it] [--rm]     → créer + lancer
+  docker stop / start              → arrêter / relancer
+  docker logs [-f] / exec -it      → observer / entrer dedans
+  docker rm / rmi                  → supprimer un conteneur / une image
+
+  ---
+
+  Ton exercice : fais les exercices A et B, puis réponds à cette petite
+  question.
+
+  ▎ 🤔 Le conteneur nginx monweb tourne, mais si tu ouvres http://localhost dans
+  ▎ ton navigateur, rien ne s'affiche. Pourquoi, d'après toi ?
+
+  C'est justement le sujet de la leçon 3 : les ports. Dis-moi quand tu es
+  prêt·e, ou si une commande t'a donné une erreur.
+
+✻ Cooked for 17s · done 1:40 PM
+
+❯ parce que le port n'est pas ouvert, leçon suivante                            
+
+● Leçon 3 : les ports
+
+  ✅ Bonne réponse ! Pour être précis : nginx écoute bien sur le port 80, mais à
+  l'intérieur du conteneur. Le conteneur a son propre réseau isolé, et ton PC
+  ne sait pas qu'il doit lui transmettre ce qui arrive. Il faut publier le port.
+
+  ---
+
+  1. Le principe
+
+   Navigateur                   Ton PC (hôte)                  Conteneur
+  http://localhost:8080  ──►   port 8080   ──── -p ────►   port 80 (nginx)
+
+  La syntaxe est toujours -p PORT_HÔTE:PORT_CONTENEUR.
+
+  ▎ Moyen mnémotechnique : dehors : dedans.
+
+  ---
+
+  2. Exercice A : ton premier site accessible
+
+  D'abord, supprime l'ancien monweb s'il existe encore :
+
+  docker rm -f monweb      # -f = arrête puis supprime en une seule commande
+
+  Puis :
+
+  docker run -d --name monweb -p 8080:80 nginx
+
+  Ouvre http://localhost:8080 dans ton navigateur : tu dois voir « Welcome to 
+  nginx! » 🎉
+
+  Vérifie aussi avec :
+
+  docker ps            # colonne PORTS : 0.0.0.0:8080->80/tcp
+  docker port monweb   # affiche les ports publiés
+  docker logs monweb   # tu vois la requête de ton navigateur passer !
+
+  ---
+
+  3. Exercice B : plusieurs conteneurs, plusieurs ports
+
+  Une même image peut tourner plusieurs fois, à condition d'utiliser un port 
+  hôte différent pour chaque conteneur :
+
+  docker run -d --name web2 -p 8081:80 nginx
+  docker run -d --name web3 -p 8082:80 nginx
+
+  → http://localhost:8081 et http://localhost:8082 fonctionnent aussi. Les trois
+  écoutent sur le port 80 chez eux, sans conflit.
+
+  Maintenant, provoque volontairement une erreur :
+
+  docker run -d --name web4 -p 8080:80 nginx
+
+  Tu obtiens port is already allocated : le port hôte 8080 est déjà pris par
+  monweb. Côté hôte, un port ne peut servir qu'à un seul conteneur à la fois.
+
+  Le conteneur web4 a quand même été créé, mais il n'a pas pu démarrer. Fais le
+  ménage :
+
+  docker rm -f web2 web3 web4
+
+  ---
+
+  4. Exercice C : modifier la page… et la perdre 😱
+
+  On change la page d'accueil depuis l'intérieur du conteneur :
+
+  docker exec monweb sh -c 'echo "<h1>Mon premier site Docker</h1>" > 
+  /usr/share/nginx/html/index.html'
+
+  Rafraîchis http://localhost:8080 : ta page s'affiche.
+
+  Maintenant, on supprime le conteneur et on le recrée :
+
+  docker rm -f monweb
+  docker run -d --name monweb -p 8080:80 nginx
+
+  Rafraîchis : ta page a disparu, tu retrouves « Welcome to nginx! ».
+
+  ---
+
+  Récap
+
+  - -p 8080:80 → hôte:conteneur
+  - Un port hôte ne peut être utilisé que par un seul conteneur à la fois.
+  - docker port <nom> affiche les ports publiés.
+  - docker rm -f arrête et supprime en une seule commande.
+  - Les modifications faites dans un conteneur disparaissent quand on le
+    supprime.
+
+  ---
+
+  Question pour la suite :
+
+  ▎ 🤔 Imagine que ce conteneur soit une base de données MySQL au lieu de nginx.
+  ▎ Que se passerait-il avec tes données à chaque mise à jour du conteneur ? Et
+  ▎ comment pourrait-on éviter ça ?
+
+  C'est le sujet de la leçon 4 : les volumes. Dis-moi quand tu es prêt·e !
+
+✻ Cogitated for 15s · done 1:54 PM
+
+❯ les données seraient perdues, et je me fais virer. il faut des volumes, leçon 
+  suivante                                                                      
+
+● Leçon 4 : les volumes (pour garder ton job 😄)
+
+  ✅ Exactement. Un conteneur doit être jetable : on le supprime et on le recrée
+  sans regret. Les données, elles, doivent vivre à l'extérieur du conteneur.
+  C'est le rôle des volumes.
+
+  ---
+
+  1. Les deux façons de stocker des données
+
+                         Ton PC (hôte)                     Conteneur
+   Bind mount :     ~/docker-cours/site/   ◄──────►   /usr/share/nginx/html
+   Volume nommé :   [géré par Docker]      ◄──────►   /var/lib/mysql
+
+  Type: Bind mount
+  Syntaxe: -v /chemin/sur/pc:/chemin/conteneur
+  Quand l'utiliser: Ton code pendant le développement : tu modifies un fichier
+    sur ton PC et le conteneur voit le changement immédiatement
+  ────────────────────────────────────────
+  Type: Volume nommé
+  Syntaxe: -v nom_volume:/chemin/conteneur
+  Quand l'utiliser: Les données (bases de données…). Docker les range lui-même,
+    et tu n'as pas à t'en occuper.
+
+  Pour les deux, la logique est la même que pour les ports : dehors : dedans.
+
+  ---
+
+  2. Exercice A : bind mount, ton site sur ton PC
+
+  On crée un dossier de travail avec une page :
+
+  mkdir -p ~/docker-cours/site
+  cd ~/docker-cours
+  echo "<h1>Mon site, stocké sur MON PC</h1>" > site/index.html
+
+  On relance nginx en montant ce dossier à la place du dossier web du conteneur
+  :
+
+  docker rm -f monweb
+  docker run -d --name monweb -p 8080:80 -v $(pwd)/site:/usr/share/nginx/html:ro
+  nginx
+
+  - $(pwd) est remplacé par le dossier courant. Un bind mount exige un chemin 
+    absolu.
+  - :ro signifie read-only : le conteneur peut lire les fichiers, mais pas les
+    modifier. C'est plus sûr.
+
+  → http://localhost:8080 affiche ta page.
+
+  Maintenant, modifie le fichier sur ton PC avec l'éditeur de ton choix, ou avec
+  :
+
+  echo "<h1>Modifié en direct !</h1>" > site/index.html
+
+  Rafraîchis le navigateur : le changement apparaît immédiatement, sans
+  redémarrer le conteneur. Et si tu fais docker rm -f monweb puis que tu
+  relances, ta page est toujours là, puisqu'elle est sur ton PC.
+
+  ---
+
+  3. Exercice B : volume nommé, une vraie base MySQL
+
+  Nouvelle option : -e, qui passe une variable d'environnement au conteneur.
+  L'image MySQL l'exige pour définir le mot de passe root.
+
+  docker volume create mesdonnees
+
+  docker run -d --name madb \
+    -e MYSQL_ROOT_PASSWORD=secret \
+    -v mesdonnees:/var/lib/mysql \
+    mysql:8
+
+  Attends environ 20 secondes que MySQL démarre (docker logs -f madb jusqu'à
+  voir ready for connections, puis Ctrl+C). Ensuite, crée des données
+  importantes :
+
+  docker exec -it madb mysql -uroot -psecret
+
+  CREATE DATABASE boulot;
+  USE boulot;
+  CREATE TABLE clients (nom VARCHAR(50));
+  INSERT INTO clients VALUES ('Client très important');
+  SELECT * FROM clients;
+  exit
+
+  Le test qui sauve ton job : on détruit le conteneur…
+
+  docker rm -f madb
+
+  …puis on en recrée un tout neuf, branché sur le même volume :
+
+  docker run -d --name madb -e MYSQL_ROOT_PASSWORD=secret -v
+  mesdonnees:/var/lib/mysql mysql:8
+
+  Attends quelques secondes, puis :
+
+  docker exec -it madb mysql -uroot -psecret -e "SELECT * FROM boulot.clients;"
+
+  → « Client très important » est toujours là. Tu es sauvé·e. 🎉
+
+  ---
+
+  4. Gérer les volumes
+
+  docker volume ls                    # liste les volumes
+  docker volume inspect mesdonnees    # détails, dont l'emplacement réel sur le 
+  disque
+  docker volume rm mesdonnees         # ⚠️ SUPPRIME DÉFINITIVEMENT les données
+
+  À retenir : docker rm sur un conteneur ne supprime pas ses volumes nommés,
+  c'est voulu. En revanche, docker volume rm et docker volume prune effacent les
+  données pour de bon. En production, ce sont ces commandes qui font virer les
+  gens, alors relis-toi toujours avant de les lancer.
+
+  ---
+
+  Récap
+
+  -v /chemin/absolu/pc:/chemin/conteneur     → bind mount (ton code)
+  -v nom_volume:/chemin/conteneur            → volume nommé (tes données)
+  :ro                                        → lecture seule
+  -e VARIABLE=valeur                         → configurer le conteneur
+  docker volume ls / inspect / rm            → gérer les volumes
+
+  La règle d'or : le conteneur est jetable, les données sont dans un volume.
+
+  ---
+
+  Question pour la suite :
+
+  ▎ 🤔 Jusqu'ici, on a seulement utilisé des images toutes faites (nginx, mysql,
+  ▎ alpine). Mais imagine que ton application ait besoin de PHP 8.3 avec 
+  ▎ l'extension pdo_mysql et ton code déjà copié dedans, pour l'envoyer sur un 
+  ▎ serveur. Comment pourrais-tu fabriquer cette image sur mesure ?
+
+  C'est le sujet de la leçon 5 : ton premier Dockerfile. Dis-moi quand tu as
+  terminé les exercices !
+
+✻ Brewed for 22s · done 2:02 PM
+
+❯ avec un Dockerfile, leçon suivante                                            
+
+● Leçon 5 : ton premier Dockerfile
+
+  ✅ Exactement. Un Dockerfile, c'est la recette de ton image : on part d'une
+  image existante, on ajoute ce dont on a besoin, et on obtient ta propre image.
+
+  ---
+
+  1. Les instructions de base
+
+  ┌─────────────┬──────────────────────────────┬────────────────────────────┐
+  │ Instruction │             Rôle             │          Exemple           │
+  ├─────────────┼──────────────────────────────┼────────────────────────────┤
+  │ FROM        │ l'image de départ (toujours  │ FROM php:8.3-apache        │
+  │             │ en premier)                  │                            │
+  ├─────────────┼──────────────────────────────┼────────────────────────────┤
+  │ RUN         │ exécute une commande pendant │ RUN docker-php-ext-install │
+  │             │  la construction de l'image  │  pdo_mysql                 │
+  ├─────────────┼──────────────────────────────┼────────────────────────────┤
+  │ COPY        │ copie des fichiers de ton PC │ COPY src/ /var/www/html/   │
+  │             │  dans l'image                │                            │
+  ├─────────────┼──────────────────────────────┼────────────────────────────┤
+  │             │ définit le dossier courant   │                            │
+  │ WORKDIR     │ pour les instructions        │ WORKDIR /var/www/html      │
+  │             │ suivantes                    │                            │
+  ├─────────────┼──────────────────────────────┼────────────────────────────┤
+  │ ENV         │ définit une variable         │ ENV APP_ENV=prod           │
+  │             │ d'environnement              │                            │
+  ├─────────────┼──────────────────────────────┼────────────────────────────┤
+  │             │ documente le port utilisé    │                            │
+  │ EXPOSE      │ (n'ouvre rien : c'est -p qui │ EXPOSE 80                  │
+  │             │  publie)                     │                            │
+  ├─────────────┼──────────────────────────────┼────────────────────────────┤
+  │ CMD         │ la commande lancée au        │ CMD ["apache2-foreground"] │
+  │             │ démarrage du conteneur       │                            │
+  └─────────────┴──────────────────────────────┴────────────────────────────┘
+
+  ▎ Ne confonds pas RUN et CMD : RUN s'exécute une seule fois, à la construction
+  ▎ de l'image, alors que CMD s'exécute à chaque démarrage d'un conteneur.
+
+  ---
+
+  2. Exercice A : construire ton image PHP
+
+  On prépare le projet :
+
+  mkdir -p ~/docker-cours/monapp/src
+  cd ~/docker-cours/monapp
+
+  Crée le fichier src/index.php :
+
+  <?php
+  echo "<h1>Mon application PHP dans Docker</h1>";
+  echo "<p>Version de PHP : " . PHP_VERSION . "</p>";
+  echo "<p>pdo_mysql installé : " . (extension_loaded('pdo_mysql') ? '✅ oui' :
+  '❌ non') . "</p>";
+
+  Crée le fichier Dockerfile, sans extension, à la racine de monapp/ :
+
+  # 1. Point de départ : PHP 8.3 avec le serveur Apache déjà configuré
+  FROM php:8.3-apache
+
+  # 2. Installer l'extension MySQL pour PHP
+  RUN docker-php-ext-install pdo_mysql
+
+  # 3. Se placer dans le dossier web d'Apache
+  WORKDIR /var/www/html
+
+  # 4. Copier notre code dans l'image
+  COPY src/ .
+
+  # 5. Documenter le port utilisé par Apache
+  EXPOSE 80
+
+  # (Pas besoin de CMD : l'image php:8.3-apache démarre déjà Apache)
+
+  Construis l'image :
+
+  docker build -t monapp:1.0 .
+
+  - -t monapp:1.0 donne à l'image le nom monapp et le tag (version) 1.0.
+  - Le . final est le contexte de construction : le dossier dont Docker peut
+    copier les fichiers. Ne l'oublie pas !
+
+  Ensuite, lance un conteneur avec ton image :
+
+  docker images                                   # monapp:1.0 apparaît dans la 
+  liste
+  docker run -d --name monapp -p 8090:80 monapp:1.0
+
+  → http://localhost:8090 doit afficher PHP 8.3 et pdo_mysql : ✅ oui.
+
+  ---
+
+  3. Exercice B : comprendre le cache des couches
+
+  Chaque instruction crée une couche (layer) dans l'image. Docker garde ces
+  couches en cache pour ne pas tout refaire à chaque construction.
+
+  Relance exactement la même construction :
+
+  docker build -t monapp:1.0 .
+
+  Elle prend environ une seconde, et tu vois CACHED sur chaque étape.
+
+  Maintenant, modifie src/index.php (change le titre, par exemple) et
+  reconstruis en version 1.1 :
+
+  docker build -t monapp:1.1 .
+
+  Observe la sortie : FROM et RUN sont CACHED, et seul COPY est refait. C'est
+  pour ça que l'ordre compte :
+
+  FROM          ← change rarement
+  RUN install   ← change rarement     } mis en cache
+  COPY code     ← change souvent      ← à mettre EN DERNIER
+
+  Si tu mettais le COPY avant le RUN, chaque modification de ton code
+  relancerait toute l'installation des extensions. Avec un vrai projet, ça peut
+  prendre plusieurs minutes.
+
+  Pour voir les couches d'une image :
+
+  docker history monapp:1.1
+
+  Important : ton conteneur monapp affiche toujours l'ancienne version. Une
+  image est figée : pour voir la nouvelle version, il faut recréer le conteneur
+  à partir de la nouvelle image.
+
+  docker rm -f monapp
+  docker run -d --name monapp -p 8090:80 monapp:1.1
+
+  ---
+
+  4. Le fichier .dockerignore
+
+  C'est l'équivalent de .gitignore : les fichiers listés ne sont jamais envoyés
+  à la construction. Crée le fichier .dockerignore à côté du Dockerfile :
+
+  .git
+  .env
+  node_modules
+  vendor
+  *.log
+
+  Il rend la construction plus rapide, et surtout il évite d'embarquer tes
+  secrets (.env) dans une image que tu pourrais partager.
+
+  ---
+
+  5. Bind mount ou COPY ?
+
+  ┌─────────────┬─────────────────────────────┬────────────────────────────┐
+  │             │       Bind mount (-v)       │  COPY dans le Dockerfile   │
+  ├─────────────┼─────────────────────────────┼────────────────────────────┤
+  │ Quand       │ en développement            │ pour livrer (production)   │
+  ├─────────────┼─────────────────────────────┼────────────────────────────┤
+  │ Code        │ visible immédiatement       │ il faut reconstruire       │
+  │ modifié     │                             │ l'image                    │
+  ├─────────────┼─────────────────────────────┼────────────────────────────┤
+  │ Autonome ?  │ non, il faut le dossier du  │ oui, l'image contient tout │
+  │             │ PC                          │                            │
+  └─────────────┴─────────────────────────────┴────────────────────────────┘
+
+  En pratique, on utilise souvent les deux : COPY dans le Dockerfile, plus un
+  bind mount en développement qui masque ce code par ta version en cours
+  d'édition.
+
+  ---
+
+  Récap
+
+  FROM → RUN → WORKDIR → COPY → EXPOSE → CMD     (du plus stable au plus 
+  changeant)
+  docker build -t nom:version .                  → construire
+  docker history nom:version                     → voir les couches
+  .dockerignore                                  → exclure des fichiers
+
+  ---
+
+  Question pour la suite :
+
+  ▎ 🤔 Ton appli PHP a besoin de la base MySQL de la leçon 4. Pour tout lancer, 
+  ▎ il faut taper deux longues commandes docker run avec des -p, -v, -e… Et en 
+  ▎ plus, les deux conteneurs doivent pouvoir communiquer entre eux. Pas très 
+  ▎ pratique à retenir ni à partager avec un collègue. Que pourrait-on faire ?
+
+  C'est le sujet de la leçon 6, la dernière : Docker Compose, où tout tiendra
+  dans un seul fichier. Dis-moi quand tu es prêt·e !
+
+✻ Cooked for 25s · done 2:33 PM
