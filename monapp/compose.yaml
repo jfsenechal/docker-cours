@@ -1,0 +1,32 @@
+services:
+  app:
+    build: .                      # construit l'image depuis TON Dockerfile
+    ports:
+      - "8090:80"
+    volumes:
+      - ./src:/var/www/html       # bind mount : code modifiable en direct
+    environment:
+      DB_HOST: db                 # ← nom du service = adresse réseau
+      DB_NAME: boulot
+      DB_USER: appuser
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      db:
+        condition: service_healthy   # attend que MySQL soit VRAIMENT prêt
+
+  db:
+    image: mysql:8
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: boulot      # base créée automatiquement au 1er démarrage
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppass
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-psecret"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  dbdata:

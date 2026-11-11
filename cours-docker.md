@@ -353,6 +353,22 @@ Correspondance avec `docker run` :
 | `docker build` | `build: .` |
 | image | `image:` |
 
+### D'où vient PHP ? (`build:` ou `image:`)
+
+- `db` utilise `image: mysql:8` : une image **toute faite** de Docker Hub.
+- `app` utilise `build: .` : Compose **construit** l'image à partir du `Dockerfile`, et celui-ci commence par `FROM php:8.3-apache`. PHP est donc bien là, hérité de l'image de base.
+
+```
+Docker Hub : php:8.3-apache  (Debian + Apache + PHP)
+        │  FROM
+        ▼
+Dockerfile : + pdo_mysql + code   →   image « monapp-app »   →   conteneur app
+```
+
+- L'image construite est nommée automatiquement `<dossier>-<service>` → `monapp-app`.
+- Apache exécute les fichiers `.php` grâce au module PHP (`mod_php`) déjà configuré dans `php:8.3-apache`.
+- Pour le vérifier : `docker compose images`, `docker images` et `docker compose exec app php -v`.
+
 ### `depends_on` et `healthcheck`
 
 - `depends_on` seul : `db` **démarre** avant `app`… mais MySQL met plusieurs secondes à être prêt.
