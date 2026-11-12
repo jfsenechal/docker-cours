@@ -342,6 +342,13 @@ volumes:
   dbdata:                         # déclaration du volume nommé
 ```
 
+**Deux `volumes:` différents** — l'ordre dans le fichier n'a aucune importance (YAML est lu en entier avant d'agir), seule l'**indentation** compte :
+
+- `volumes:` **dans un service** (indenté) = *utilisation* : « monte ceci à tel endroit du conteneur ».
+- `volumes:` **tout à gauche** (même niveau que `services:`) = *déclaration* des volumes nommés. Mis en bas par convention.
+
+Un bind mount (`./src:...`) n'a pas besoin d'être déclaré ; un volume nommé (`dbdata`) oui, sinon : `service "db" refers to undefined volume dbdata`.
+
 Correspondance avec `docker run` :
 
 | `docker run` | `compose.yaml` |
