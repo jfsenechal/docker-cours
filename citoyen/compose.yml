@@ -1,0 +1,38 @@
+services:
+  roundcube:
+    build: .
+    container_name: roundcube-citoyen
+    restart: always
+    ports:
+      - "8080:80"
+    # Permet au conteneur de contacter le MariaDB de la machine hôte si MariaDB est hors Docker
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      ROUNDCUBEMAIL_DB_TYPE: mysql
+      ROUNDCUBEMAIL_DB_HOST: host.docker.internal
+      ROUNDCUBEMAIL_DB_PORT: 3306
+      ROUNDCUBEMAIL_DB_NAME: roundcube
+      ROUNDCUBEMAIL_DB_USER: ${DB_USER}
+      ROUNDCUBEMAIL_DB_PASSWORD: ${DB_PASSWORD}
+      ROUNDCUBEMAIL_SKIN: elastic
+      # Configuration IMAP / SMTP
+      ROUNDCUBEMAIL_DEFAULT_HOST: ssl://${IMAP_HOST}
+      ROUNDCUBEMAIL_DEFAULT_PORT: 993
+      ROUNDCUBEMAIL_SMTP_SERVER: tls://${IMAP_HOST}
+      ROUNDCUBEMAIL_SMTP_PORT: 587
+      ROUNDCUBEMAIL_SMTP_USER: "%u"
+      ROUNDCUBEMAIL_SMTP_PASS: "%p"
+      # Configuration SIEVE
+      ROUNDCUBEMAIL_PLUGINS: "managesieve,archive,emoticons,newmail_notifier,password,zipdownload,markasjunk"
+    volumes:
+      - /opt/roundcube/config:/var/roundcube/config
+      - /opt/roundcube/images:/var/www/html/skins/elastic/images
+      - /var/log/roundcube:/var/www/html/logs
+      - /opt/roundcube/config/custom.inc.php:/var/www/html/plugins/password/config.inc.php:ro
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 192.168.100.0/24
