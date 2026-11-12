@@ -20,7 +20,7 @@ services:
       MYSQL_ROOT_PASSWORD: secret
       MYSQL_DATABASE: boulot      # base créée automatiquement au 1er démarrage
       MYSQL_USER: appuser
-      MYSQL_PASSWORD: apppass
+      MYSQL_PASSWORD: ${DB_PASSWORD}
     volumes:
       - dbdata:/var/lib/mysql
     healthcheck:

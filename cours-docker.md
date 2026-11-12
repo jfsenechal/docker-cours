@@ -401,6 +401,20 @@ DB_PASSWORD=apppass
       DB_PASSWORD: ${DB_PASSWORD}
 ```
 
+### Piège : changer le mot de passe MySQL après coup → `Access denied (1045)`
+
+Les variables `MYSQL_USER` / `MYSQL_PASSWORD` / `MYSQL_DATABASE` ne servent **qu'au tout premier démarrage**, quand le volume `dbdata` est vide. Ensuite MySQL retrouve ses données dans le volume et **ignore** ces variables. Si on change le mot de passe dans `.env`, l'appli envoie le nouveau, mais la base a gardé l'ancien.
+
+Deux solutions :
+
+```bash
+# 1. Garder les données : changer le mot de passe dans MySQL lui-même
+docker compose exec db mysql -uroot -p -e "ALTER USER 'appuser'@'%' IDENTIFIED BY 'nouveau';"
+
+# 2. Repartir de zéro (⚠️ données perdues) : le volume vide sera réinitialisé avec le .env
+docker compose down -v && docker compose up -d
+```
+
 ---
 
 ## Aide-mémoire global
