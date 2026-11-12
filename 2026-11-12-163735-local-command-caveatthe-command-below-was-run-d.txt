@@ -1,0 +1,459 @@
+ ▐▛███▛█   Claude Code v2.1.322
+▝▜██████▀  Fable 5.2 · Claude Pro
+ ▝▝   ▝▝   /var/www/docker
+
+
+❯ /clear                                                                        
+
+❯ volumes est mis en bas du fichier, malgré que les volumes sont mis plus haut  
+  est ce important                                                              
+
+  Searched for 1 pattern, read 2 files, recalled 1 memory (ctrl+o to expand)
+
+● Update(cours-docker.md)
+  ⎿  Added 7 lines
+      342    dbdata:                         # déclaration du volume nomm
+           é
+      343  ```
+      344  
+      345 +**Deux `volumes:` différents** — l'ordre dans le fichier n'a a
+          +ucune importance (YAML est lu en entier avant d'agir), seule l
+          +'**indentation** compte :                                     
+      346 +                                                              
+      347 +- `volumes:` **dans un service** (indenté) = *utilisation* : «
+          + monte ceci à tel endroit du conteneur ».                     
+      348 +- `volumes:` **tout à gauche** (même niveau que `services:`) =
+          + *déclaration* des volumes nommés. Mis en bas par convention. 
+      349 +                                                              
+      350 +Un bind mount (`./src:...`) n'a pas besoin d'être déclaré ; un
+          + volume nommé (`dbdata`) oui, sinon : `service "db" refers to 
+          +undefined volume dbdata`.                                     
+      351 +                                                              
+      352  Correspondance avec `docker run` :
+      353  
+      354  | `docker run` | `compose.yaml` |
+
+● Non, l'ordre n'a aucune importance. Compose lit tout le fichier YAML avant de
+  faire quoi que ce soit, donc volumes: pourrait être tout en haut, ça
+  marcherait pareil. Le mettre en bas est juste une convention.
+
+  Ce qui compte, c'est l'indentation, car il y a en fait deux volumes:
+  différents dans ton fichier :
+
+  ┌───────────────────────┬──────────────────────────────────┬─────────────┐
+  │          Où           │               Rôle               │  Dans ton   │
+  │                       │                                  │   fichier   │
+  ├───────────────────────┼──────────────────────────────────┼─────────────┤
+  │ Dans un service       │ Utilise un volume : « monte ceci │ lignes 6 et │
+  │ (indenté)             │  à tel endroit du conteneur »    │  24         │
+  ├───────────────────────┼──────────────────────────────────┼─────────────┤
+  │ Tout à gauche, au     │ Déclare les volumes nommés       │ ligne 31    │
+  │ niveau de services:   │                                  │             │
+  └───────────────────────┴──────────────────────────────────┴─────────────┘
+
+  - Volume nommé (dbdata) : la déclaration du bas est obligatoire. Sans elle,
+    Compose refuse de démarrer avec service "db" refers to undefined volume 
+    dbdata.
+  - Bind mount (./src:/var/www/html) : rien à déclarer, c'est un simple chemin
+    de ton PC.
+
+  J'ai ajouté ce point à la leçon 6 de cours-docker.md.
+
+✻ Crunched for 16s · done 14:30
+
+❯ leçon suivante                                                                
+
+  Read 1 file, ran 3 shell commands (ctrl+o to expand)
+
+● Update(cours-docker.md)
+  ⎿  Added 1 line
+      11  - [x] Leçon 4 — Les volumes
+      12  - [x] Leçon 5 — Le Dockerfile
+      13  - [x] Leçon 6 — Docker Compose
+      14 +- [ ] Leçon 7 — Dépannage : trouver pourquoi ça ne marche pas  
+      15  
+      16  ---
+      17  
+
+● Update(cours-docker.md)
+  ⎿  Added 58 lines
+      425  
+      426  ---
+      427  
+      428 +## Leçon 7 — Dépannage : trouver pourquoi ça ne marche pas    
+      429 +                                                              
+      430 +Toujours les 4 mêmes questions, dans cet ordre.               
+      431 +                                                              
+      432 +### 1. Le conteneur tourne-t-il ?                             
+      433 +                                                              
+      434 +```bash                                                       
+      435 +docker compose ps -a      # -a : montre aussi les conteneurs a
+          +rrêtés                                                        
+      436 +```                                                           
+      437 +                                                              
+      438 +| STATUS | Signification |                                    
+      439 +|---|---|                                                     
+      440 +| `Up` | il tourne |                                          
+      441 +| `Up (healthy)` / `(unhealthy)` | il tourne, healthcheck réus
+          +si / en échec |                                               
+      442 +| `Exited (0)` | terminé normalement |                        
+      443 +| `Exited (1)` | planté sur une erreur → lire les logs |      
+      444 +| `Exited (127)` | commande introuvable (faute de frappe dans 
+          +`CMD`) |                                                      
+      445 +| `Exited (137)` | tué (`docker stop` trop long, ou plus de mé
+          +moire) |                                                      
+      446 +| `Restarting` | plante en boucle |                           
+      447 +                                                              
+      448 +### 2. Que dit-il ?                                           
+      449 +                                                              
+      450 +```bash                                                       
+      451 +docker compose logs --tail 50 app   # les 50 dernières lignes 
+      452 +docker compose logs -f              # tous les services, en di
+          +rect                                                          
+      453 +```                                                           
+      454 +                                                              
+      455 +### 3. Qu'y a-t-il dedans ?                                   
+      456 +                                                              
+      457 +```bash                                                       
+      458 +docker compose exec app bash           # entrer dans un conten
+          +eur qui tourne                                                
+      459 +docker compose exec app env            # ses variables d'envir
+          +onnement                                                      
+      460 +docker compose run --rm app bash       # conteneur qui plante 
+          +au démarrage : en lancer un neuf avec bash à la place         
+      461 +```                                                           
+      462 +                                                              
+      463 +### 4. Quelle configuration est réellement appliquée ?        
+      464 +                                                              
+      465 +```bash                                                       
+      466 +docker compose config     # le compose.yaml final, variables d
+          +u .env remplacées                                             
+      467 +docker inspect monapp-app-1                                   
+      468 +```                                                           
+      469 +                                                              
+      470 +### Piège : `restart` ne relit pas le `compose.yaml`          
+      471 +                                                              
+      472 +- `docker compose restart` : redémarre les **mêmes** conteneur
+          +s, avec l'**ancienne** config.                                
+      473 +- `docker compose up -d` : compare le fichier à ce qui tourne 
+          +et **recrée** ce qui a changé.                                
+      474 +- Dockerfile modifié : `docker compose up -d --build`.        
+      475 +                                                              
+      476 +### Place disque                                              
+      477 +                                                              
+      478 +```bash                                                       
+      479 +docker stats              # CPU / mémoire en direct (Ctrl+C po
+          +ur quitter)                                                   
+      480 +docker system df          # place prise par images, conteneurs
+          +, volumes, cache                                              
+      481 +docker system prune       # supprime ce qui ne sert plus (PAS 
+          +les volumes)                                                  
+      482 +```                                                           
+      483 +                                                              
+      484 +---                                                           
+      485 +                                                              
+      486  ## Aide-mémoire global
+      487  
+      488  ```bash
+
+● Update(cours-docker.md)
+  ⎿  Added 4 lines
+      505  # Compose (dans le dossier du compose.yaml)
+      506  docker compose up -d [--build] | ps | logs -f S | exec S cmd
+      507  docker compose stop | start | down | down -v (⚠️ volumes suppr
+           imés)
+      508 +                                                              
+      509 +# Dépanner : état → logs → dedans → config                    
+      510 +docker compose ps -a | logs --tail 50 S | exec S bash | config
+      511 +docker stats | docker system df | docker system prune         
+      512  ```
+
+● Leçon 7 — Dépannage : trouver pourquoi ça ne marche pas
+
+  Le programme initial (leçons 1 à 6) est terminé. Parmi les bonus proposés, je
+  commence par le dépannage : tu as déjà rencontré un Access denied, et c'est la
+  compétence qui sert tous les jours.
+
+  La méthode tient en 4 questions, toujours dans le même ordre.
+
+  1. Le conteneur tourne-t-il ?
+
+  docker compose ps -a      # -a : montre aussi les conteneurs arrêtés
+
+  ┌───────────────────┬────────────────────────────────────────┐
+  │      STATUS       │             Signification              │
+  ├───────────────────┼────────────────────────────────────────┤
+  │ Up / Up (healthy) │ il tourne                              │
+  ├───────────────────┼────────────────────────────────────────┤
+  │ Up (unhealthy)    │ il tourne, mais son healthcheck échoue │
+  ├───────────────────┼────────────────────────────────────────┤
+  │ Exited (0)        │ terminé normalement                    │
+  ├───────────────────┼────────────────────────────────────────┤
+  │ Exited (1)        │ planté sur une erreur : lire les logs  │
+  ├───────────────────┼────────────────────────────────────────┤
+  │ Exited (127)      │ commande introuvable                   │
+  ├───────────────────┼────────────────────────────────────────┤
+  │ Exited (137)      │ tué (souvent par manque de mémoire)    │
+  ├───────────────────┼────────────────────────────────────────┤
+  │ Restarting        │ plante en boucle                       │
+  └───────────────────┴────────────────────────────────────────┘
+
+  2. Que dit-il ?
+
+  docker compose logs --tail 50 app   # les 50 dernières lignes de app
+  docker compose logs -f              # tous les services, en direct
+
+  3. Qu'y a-t-il dedans ?
+
+  docker compose exec app bash        # entrer dans un conteneur qui tourne
+  docker compose exec app env         # ses variables d'environnement
+  docker compose run --rm app bash    # s'il plante au démarrage : en lancer un 
+  neuf avec bash à la place
+
+  4. Quelle configuration est réellement appliquée ?
+
+  docker compose config     # le compose.yaml final, avec les variables du .env 
+  remplacées
+
+  Le piège classique
+
+  docker compose restart redémarre les mêmes conteneurs avec l'ancienne
+  configuration. Après une modification du compose.yaml ou du .env, c'est docker
+  compose up -d qu'il faut : il recrée ce qui a changé.
+
+  Exercices (dans monapp/)
+
+  Tu vas casser ton appli exprès, puis la réparer avec la méthode.
+
+  1. Casser : dans compose.yaml, remplace DB_HOST: db par DB_HOST: base, puis
+     lance docker compose restart. Recharge http://localhost:8090 : ça marche
+     encore. Pourquoi ?
+  2. Lance maintenant docker compose up -d et recharge la page : cette fois
+     c'est cassé.
+  3. Enquêter : applique les 4 questions.
+     - docker compose ps -a : le conteneur app tourne-t-il ?
+     - docker compose logs --tail 20 app : quel message d'erreur trouves-tu ?
+     - docker compose exec app env | grep DB : que vaut DB_HOST ?
+  4. Réparer : remets DB_HOST: db, puis docker compose up -d.
+  5. Lance docker compose config et regarde ce qu'est devenu ${DB_PASSWORD}.
+  6. Lance docker system df pour voir la place prise par Docker sur ton disque.
+
+  Récap
+
+  - L'ordre est toujours : état (ps -a), logs, intérieur (exec), configuration
+    (config).
+  - Un conteneur peut être Up alors que l'appli dedans est en erreur : ce sont
+    les logs qui le disent.
+  - restart ne relit pas le fichier, up -d oui.
+
+  J'ai ajouté la leçon 7 à cours-docker.md (case à cocher quand tu auras fait
+  les exercices).
+
+  Question pour la suite : lance docker images monapp-app et regarde la colonne
+  SIZE. Ton index.php pèse 488 octets : d'où vient tout le reste, et comment
+  faire une image plus légère ?
+
+✻ Cooked for 44s · done 14:33
+
+❯ leçon suivante                                                                
+
+  Ran 3 shell commands (ctrl+o to expand)
+
+● Je viens de tester l'exemple de la leçon 8 (image multi-étapes) sur ta machine
+  pour te donner de vrais chiffres ; j'écris maintenant les notes de cours.
+
+● Update(cours-docker.md)
+  ⎿  Added 2 lines, removed 1 line
+      11  - [x] Leçon 4 — Les volumes
+      12  - [x] Leçon 5 — Le Dockerfile
+      13  - [x] Leçon 6 — Docker Compose
+      14 -- [ ] Leçon 7 — Dépannage : trouver pourquoi ça ne marche pas  
+      14 +- [x] Leçon 7 — Dépannage : trouver pourquoi ça ne marche pas  
+      15 +- [ ] Leçon 8 — Taille des images et build multi-étapes        
+      16  
+      17  ---
+      18  
+
+● Update(cours-docker.md)
+  ⎿  Added 53 lines
+      484  
+      485  ---
+      486  
+      487 +## Leçon 8 — Taille des images et build multi-étapes          
+      488 +                                                              
+      489 +### D'où vient le poids ?                                     
+      490 +                                                              
+      491 +```bash                                                       
+      492 +docker images monapp-app      # 738 Mo pour un index.php de 48
+          +8 octets                                                      
+      493 +docker history monapp-app     # le poids de chaque couche     
+      494 +```                                                           
+      495 +                                                              
+      496 +Presque tout vient de l'image de base `php:8.5-apache` (Debian
+          + + Apache + PHP + outils de compilation). Mes couches à moi pè
+          +sent environ 100 Ko.                                          
+      497 +                                                              
+      498 +### Règle des couches : ce qui est ajouté ne s'enlève plus    
+      499 +                                                              
+      500 +Une couche ne fait qu'**ajouter**. Supprimer un fichier dans u
+          +n `RUN` suivant le cache, mais il pèse toujours dans la couche
+          + d'avant.                                                     
+      501 +                                                              
+      502 +```dockerfile                                                 
+      503 +# ❌ 2 couches : le cache apt reste dans la première          
+      504 +RUN apt-get update && apt-get install -y git                  
+      505 +RUN rm -rf /var/lib/apt/lists/*                               
+      506 +                                                              
+      507 +# ✅ 1 couche : installé et nettoyé dans le même RUN          
+      508 +RUN apt-get update && apt-get install -y git \                
+      509 +    && rm -rf /var/lib/apt/lists/*                            
+      510 +```                                                           
+      511 +                                                              
+      512 +### Images de base plus légères                               
+      513 +                                                              
+      514 +Les variantes `-alpine` (ex. `php:8.5-cli-alpine`, `redis:8-al
+          +pine`) reposent sur Alpine Linux (4 Mo) au lieu de Debian. Att
+          +ention : pas de variante `apache-alpine` pour PHP, et Alpine u
+          +tilise `apk` au lieu de `apt-get`.                            
+      515 +                                                              
+      516 +### Build multi-étapes : l'atelier et la vitrine              
+      517 +                                                              
+      518 +Plusieurs `FROM` dans un même Dockerfile. Seule la **dernière*
+          +* étape devient l'image ; les autres servent à fabriquer, puis
+          + sont jetées. On récupère leur résultat avec `COPY --from=`.  
+      519 +                                                              
+      520 +```dockerfile                                                 
+      521 +# Étape 1 — l'atelier : Composer télécharge les dépendances   
+      522 +FROM composer:2 AS vendor                                     
+      523 +WORKDIR /app                                                  
+      524 +COPY composer.json .                                          
+      525 +RUN composer install --no-dev --no-interaction                
+      526 +                                                              
+      527 +# Étape 2 — la vitrine : l'image finale, sans Composer, ni git
+          +, ni unzip                                                    
+      528 +FROM php:8.5-apache                                           
+      529 +WORKDIR /var/www/html                                         
+      530 +COPY --from=vendor /app/vendor ./vendor                       
+      531 +COPY src/ .                                                   
+      532 +```                                                           
+      533 +                                                              
+      534 +Mesuré sur mon PC : 862 Mo en installant Composer + git + unzi
+          +p dans l'image, **746 Mo** en multi-étapes. Et surtout moins d
+          +'outils inutiles en production (moins de failles possibles).  
+      535 +                                                              
+      536 +Piège : la version de PHP de l'étape `composer` et celle de l'
+          +image finale doivent être compatibles, sinon `Your Composer de
+          +pendencies require a PHP version ">= 8.4.1"`.                 
+      537 +                                                              
+      538 +---                                                           
+      539 +                                                              
+      540  ## Aide-mémoire global
+      541  
+      542  ```bash
+
+● Leçon 8 — Taille des images et build multi-étapes
+
+  Réponse à la question : ton image monapp-app pèse 738 Mo, et presque tout
+  vient de l'image de base php:8.5-apache (Debian, Apache, PHP, outils de
+  compilation). Tes propres couches pèsent environ 100 Ko. Tu le vois avec :
+
+  docker history monapp-app
+
+  Il y a trois leviers pour alléger une image.
+
+  1. Une couche ne fait qu'ajouter
+
+  Supprimer un fichier dans un RUN suivant ne libère rien : il reste dans la
+  couche d'avant.
+
+  # ❌ le cache apt reste dans la première couche
+  RUN apt-get update && apt-get install -y git
+  RUN rm -rf /var/lib/apt/lists/*
+
+  # ✅ installé et nettoyé dans le même RUN
+  RUN apt-get update && apt-get install -y git \
+      && rm -rf /var/lib/apt/lists/*
+
+  2. Une image de base plus légère
+
+  Les variantes -alpine reposent sur Alpine Linux (4 Mo) au lieu de Debian. Tu
+  en as déjà une : redis:8-alpine. Deux limites : il n'existe pas de
+  php:apache-alpine, et Alpine utilise apk au lieu de apt-get.
+
+  3. Le build multi-étapes : l'atelier et la vitrine
+
+  Pour installer des dépendances PHP il faut Composer, git et unzip, mais
+  l'appli n'en a plus besoin une fois lancée. On met donc plusieurs FROM dans le
+  Dockerfile : seule la dernière étape devient l'image, les autres sont jetées
+  après usage.
+
+  # Étape 1 — l'atelier : Composer télécharge les dépendances
+  FROM composer:2 AS vendor
+  WORKDIR /app
+  COPY composer.json .
+  RUN composer install --no-dev --no-interaction
+
+  # Étape 2 — la vitrine : l'image finale
+  FROM php:8.5-apache
+  WORKDIR /var/www/html
+  COPY --from=vendor /app/vendor ./vendor
+  COPY src/ .
+
+  AS vendor donne un nom à l'étape, et COPY --from=vendor va y chercher
+  uniquement le dossier vendor.
+
+  Exercices
+
+  Crée un nouveau dossier /var/www/docker/multietape/ avec trois fichiers.
+
+  composer.json :
+  {
+      "require": {
+          "nesbot/carbon": "^3.0"
+      }
+  }
+
+  src/index.php :
+  <?php
+  require __DIR__ . '/vendor/autoload.php';
+
+  use Carbon\Carbon;
+
+  echo "<h1>Image multi-étapes</h1>";
+  echo "<p>Nous sommes le " . Carbon::now()->locale('fr')->isoFormat('dddd D 
+  MMMM YYYY') . "</p>";
+
+  Dockerfile : celui ci-dessus.
+
+  Puis :
+
+  1. docker build -t multietape .
+  2. docker run -d --rm --name multi -p 8091:80 multietape, puis ouvre
+     http://localhost:8091 : la date s'affiche en français.
+  3. docker exec multi composer --version : que répond-il, et pourquoi ?
+  4. docker exec multi ls vendor : les dépendances sont pourtant bien là.
+  5. docker history multietape : cherche la ligne COPY --from. Vois-tu une trace
+     de composer install ?
+  6. docker stop multi pour terminer.
+
+  J'ai vérifié cet exemple sur ta machine : 746 Mo en multi-étapes contre 862 Mo
+  en installant Composer, git et unzip dans l'image finale. L'image composer:2
+  est donc déjà téléchargée chez toi, et j'ai supprimé mes images de test.
+
+  Récap
+
+  - Le poids d'une image vient surtout de son image de base : docker history le
+    montre.
+  - Installer et nettoyer se font dans le même RUN.
+  - En multi-étapes, les outils de fabrication restent dans l'atelier et l'image
+    finale ne contient que le résultat.
+  - Les versions de PHP des deux étapes doivent être compatibles, sinon Composer
+    refuse de démarrer l'appli.
+
+  J'ai coché la leçon 7 et ajouté la leçon 8 dans cours-docker.md.
+
+  Question pour la suite : ton image multietape n'existe que sur ton PC. Comment
+  un collègue, ou ton serveur de production, pourrait-il la récupérer sans
+  avoir ton code ni refaire le build ?
+
+✻ Cogitated for 1m 51s · done 14:49

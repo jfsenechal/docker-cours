@@ -11,7 +11,8 @@
 - [x] Leçon 4 — Les volumes
 - [x] Leçon 5 — Le Dockerfile
 - [x] Leçon 6 — Docker Compose
-- [ ] Leçon 7 — Dépannage : trouver pourquoi ça ne marche pas
+- [x] Leçon 7 — Dépannage : trouver pourquoi ça ne marche pas
+- [ ] Leçon 8 — Taille des images et build multi-étapes
 
 ---
 
@@ -480,6 +481,59 @@ docker stats              # CPU / mémoire en direct (Ctrl+C pour quitter)
 docker system df          # place prise par images, conteneurs, volumes, cache
 docker system prune       # supprime ce qui ne sert plus (PAS les volumes)
 ```
+
+---
+
+## Leçon 8 — Taille des images et build multi-étapes
+
+### D'où vient le poids ?
+
+```bash
+docker images monapp-app      # 738 Mo pour un index.php de 488 octets
+docker history monapp-app     # le poids de chaque couche
+```
+
+Presque tout vient de l'image de base `php:8.5-apache` (Debian + Apache + PHP + outils de compilation). Mes couches à moi pèsent environ 100 Ko.
+
+### Règle des couches : ce qui est ajouté ne s'enlève plus
+
+Une couche ne fait qu'**ajouter**. Supprimer un fichier dans un `RUN` suivant le cache, mais il pèse toujours dans la couche d'avant.
+
+```dockerfile
+# ❌ 2 couches : le cache apt reste dans la première
+RUN apt-get update && apt-get install -y git
+RUN rm -rf /var/lib/apt/lists/*
+
+# ✅ 1 couche : installé et nettoyé dans le même RUN
+RUN apt-get update && apt-get install -y git \
+    && rm -rf /var/lib/apt/lists/*
+```
+
+### Images de base plus légères
+
+Les variantes `-alpine` (ex. `php:8.5-cli-alpine`, `redis:8-alpine`) reposent sur Alpine Linux (4 Mo) au lieu de Debian. Attention : pas de variante `apache-alpine` pour PHP, et Alpine utilise `apk` au lieu de `apt-get`.
+
+### Build multi-étapes : l'atelier et la vitrine
+
+Plusieurs `FROM` dans un même Dockerfile. Seule la **dernière** étape devient l'image ; les autres servent à fabriquer, puis sont jetées. On récupère leur résultat avec `COPY --from=`.
+
+```dockerfile
+# Étape 1 — l'atelier : Composer télécharge les dépendances
+FROM composer:2 AS vendor
+WORKDIR /app
+COPY composer.json .
+RUN composer install --no-dev --no-interaction
+
+# Étape 2 — la vitrine : l'image finale, sans Composer, ni git, ni unzip
+FROM php:8.5-apache
+WORKDIR /var/www/html
+COPY --from=vendor /app/vendor ./vendor
+COPY src/ .
+```
+
+Mesuré sur mon PC : 862 Mo en installant Composer + git + unzip dans l'image, **746 Mo** en multi-étapes. Et surtout moins d'outils inutiles en production (moins de failles possibles).
+
+Piège : la version de PHP de l'étape `composer` et celle de l'image finale doivent être compatibles, sinon `Your Composer dependencies require a PHP version ">= 8.4.1"`.
 
 ---
 
