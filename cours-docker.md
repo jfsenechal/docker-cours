@@ -11,6 +11,7 @@
 - [x] Leçon 4 — Les volumes
 - [x] Leçon 5 — Le Dockerfile
 - [x] Leçon 6 — Docker Compose
+- [ ] Leçon 7 — Dépannage : trouver pourquoi ça ne marche pas
 
 ---
 
@@ -424,6 +425,64 @@ docker compose down -v && docker compose up -d
 
 ---
 
+## Leçon 7 — Dépannage : trouver pourquoi ça ne marche pas
+
+Toujours les 4 mêmes questions, dans cet ordre.
+
+### 1. Le conteneur tourne-t-il ?
+
+```bash
+docker compose ps -a      # -a : montre aussi les conteneurs arrêtés
+```
+
+| STATUS | Signification |
+|---|---|
+| `Up` | il tourne |
+| `Up (healthy)` / `(unhealthy)` | il tourne, healthcheck réussi / en échec |
+| `Exited (0)` | terminé normalement |
+| `Exited (1)` | planté sur une erreur → lire les logs |
+| `Exited (127)` | commande introuvable (faute de frappe dans `CMD`) |
+| `Exited (137)` | tué (`docker stop` trop long, ou plus de mémoire) |
+| `Restarting` | plante en boucle |
+
+### 2. Que dit-il ?
+
+```bash
+docker compose logs --tail 50 app   # les 50 dernières lignes
+docker compose logs -f              # tous les services, en direct
+```
+
+### 3. Qu'y a-t-il dedans ?
+
+```bash
+docker compose exec app bash           # entrer dans un conteneur qui tourne
+docker compose exec app env            # ses variables d'environnement
+docker compose run --rm app bash       # conteneur qui plante au démarrage : en lancer un neuf avec bash à la place
+```
+
+### 4. Quelle configuration est réellement appliquée ?
+
+```bash
+docker compose config     # le compose.yaml final, variables du .env remplacées
+docker inspect monapp-app-1
+```
+
+### Piège : `restart` ne relit pas le `compose.yaml`
+
+- `docker compose restart` : redémarre les **mêmes** conteneurs, avec l'**ancienne** config.
+- `docker compose up -d` : compare le fichier à ce qui tourne et **recrée** ce qui a changé.
+- Dockerfile modifié : `docker compose up -d --build`.
+
+### Place disque
+
+```bash
+docker stats              # CPU / mémoire en direct (Ctrl+C pour quitter)
+docker system df          # place prise par images, conteneurs, volumes, cache
+docker system prune       # supprime ce qui ne sert plus (PAS les volumes)
+```
+
+---
+
 ## Aide-mémoire global
 
 ```bash
@@ -446,4 +505,8 @@ docker rm [-f] N | docker rmi image | docker volume rm V (⚠️ données perdue
 # Compose (dans le dossier du compose.yaml)
 docker compose up -d [--build] | ps | logs -f S | exec S cmd
 docker compose stop | start | down | down -v (⚠️ volumes supprimés)
+
+# Dépanner : état → logs → dedans → config
+docker compose ps -a | logs --tail 50 S | exec S bash | config
+docker stats | docker system df | docker system prune
 ```

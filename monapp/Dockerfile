@@ -1,5 +1,5 @@
-# 1. Point de départ : PHP 8.3 avec le serveur Apache déjà configuré
-FROM php:8.3-apache
+# 1. Point de départ : PHP 8.5 avec le serveur Apache déjà configuré
+FROM php:8.5-apache
 # 2. Installer l'extension MySQL pour PHP
 RUN docker-php-ext-install pdo_mysql
 # 3. Se placer dans le dossier web d'Apache
