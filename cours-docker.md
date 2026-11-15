@@ -12,7 +12,7 @@
 - [x] Leçon 5 — Le Dockerfile
 - [x] Leçon 6 — Docker Compose
 - [x] Leçon 7 — Dépannage : trouver pourquoi ça ne marche pas
-- [ ] Leçon 8 — Taille des images et build multi-étapes
+- [x] Leçon 8 — Taille des images et build multi-étapes
 
 ---
 
@@ -535,6 +535,8 @@ Mesuré sur mon PC : 862 Mo en installant Composer + git + unzip dans l'image, *
 
 Piège : la version de PHP de l'étape `composer` et celle de l'image finale doivent être compatibles, sinon `Your Composer dependencies require a PHP version ">= 8.4.1"`.
 
+Constat : `docker exec multi composer --version` → `executable file not found in $PATH`. Normal : le dernier `FROM` repart d'une image neuve, seul le dossier `vendor/` a été copié, pas l'outil qui l'a fabriqué.
+
 ---
 
 ## Aide-mémoire global
@@ -546,6 +548,9 @@ docker images | docker ps | docker ps -a | docker volume ls
 # Créer / lancer
 docker run [-d] [-it] [--rm] [--name N] [-p H:C] [-v SRC:DEST[:ro]] [-e VAR=val] image[:tag]
 docker build -t nom:version .
+
+# Partager (registre)
+docker tag image registre/nom:tag | docker push registre/nom:tag | docker pull registre/nom:tag | docker login
 
 # Piloter
 docker stop | start | logs [-f] | exec -it N sh
