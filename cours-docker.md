@@ -14,7 +14,7 @@
 - [x] Leçon 7 — Dépannage : trouver pourquoi ça ne marche pas
 - [x] Leçon 8 — Taille des images et build multi-étapes
 - [x] Exemple — PHP dans Docker + MySQL du PC
-- [x] Exemple — FrankenPHP + MariaDB en conteneurs (dev/prod avec override)
+- [x] Exemple — FrankenPHP + MariaDB en conteneurs (dev/prod avec override, HTTPS)
 
 ---
 
@@ -741,6 +741,58 @@ docker compose config | grep -A3 'type: bind'                 # voir le résulta
 docker compose -f compose.yaml config | grep -A3 'type: bind' # sans l'override
 ```
 
+### Activer le HTTPS (port 8443)
+
+Le port 443 du PC est déjà pris par le FrankenPHP local → on utilise 8443. Modifications du service `app` dans `compose.yaml` :
+
+```yaml
+  app:
+    ports:
+      - "8092:80"              # HTTP → redirige vers HTTPS
+      - "8443:8443"            # HTTPS
+      - "8443:8443/udp"        # HTTP/3 (QUIC passe par UDP)
+    environment:
+      SERVER_NAME: "localhost:8443"   # certificat pour localhost, HTTPS sur 8443
+    volumes:
+      - data:/data             # CA + certificats de Caddy
+      - config:/config         # config sauvegardée par Caddy
+
+volumes:
+  mariadb_data:
+  data:
+  config:
+```
+
+**`SERVER_NAME` = `nom:port`** :
+
+| `SERVER_NAME` | Ce que fait Caddy |
+|---|---|
+| *(absent)* = `localhost` | HTTPS sur 443 + redirection HTTP → `https://localhost/` (le FrankenPHP **du PC** ❌) |
+| `":80"` | pas de nom → pas de certificat → HTTP simple |
+| `"localhost:8443"` | certificat pour `localhost`, HTTPS sur **8443**, redirection → `https://localhost:8443/` ✅ |
+
+**Règle : même port dedans et dehors.** Caddy écoute sur le port de `SERVER_NAME` **dans le conteneur** et le met dans ses redirections. `"8443:443"` → personne n'écoute sur 443 dans le conteneur → la page ne s'affiche pas. Il faut `"8443:8443"`. Vérifier : `docker compose logs app | grep addr` (où Caddy écoute) contre la colonne PORTS de `docker compose ps`.
+
+**Pourquoi `/data` et `/config` dans `compose.yaml` (et pas dans l'override) ?** La CA doit persister en prod aussi. Compose **additionne** les `volumes:` de l'override à ceux de la base, il n'écrase pas.
+
+**Le certificat** (`echo | openssl s_client -connect localhost:8443 2>/dev/null | openssl x509 -noout -issuer -dates`) :
+
+```
+issuer   = Caddy Local Authority - ECC Intermediate
+valable  = 12 heures
+```
+
+- Pour `localhost`, Caddy crée **sa propre autorité (CA)** et signe lui-même → avertissement du navigateur, `curl` refuse (`unable to get local issuer certificate`) sauf avec `-k`.
+- 12 h : volontairement court, **renouvelé automatiquement**. La CA racine dure ~10 ans → grâce au volume `data`, on ne l'importe qu'une fois.
+
+**Supprimer l'avertissement** (facultatif) :
+
+```bash
+docker compose cp app:/data/caddy/pki/authorities/local/root.crt ./caddy-root.crt   # + l'ajouter au .gitignore
+# Navigateur : Paramètres → Certificats → Autorités → Importer
+# Système (curl) : sudo cp caddy-root.crt /usr/local/share/ca-certificates/frankenlocal.crt && sudo update-ca-certificates
+```
+
 ### Pièges rencontrés
 
 | Symptôme | Cause | Solution |
@@ -754,6 +806,8 @@ docker compose -f compose.yaml config | grep -A3 'type: bind' # sans l'override
 | `service "app" depends on undefined service "db"` | nom copié d'un autre exemple | `docker compose config --quiet` après chaque modification |
 | Mot de passe root inchangé | variables `MARIADB_*` lues seulement si le volume est vide | `docker compose down -v` (⚠️ données perdues) |
 | `curl` n'affiche rien | une redirection n'a pas de corps | `curl -i` (en-têtes), `curl -L` (suivre) |
+| `ERR_SSL_PROTOCOL_ERROR` / rien sur `https://localhost:8443` | `"8443:443"` alors que Caddy écoute sur 8443 dans le conteneur | `"8443:8443"` (même port des deux côtés) |
+| Avertissement de certificat | CA locale de Caddy, inconnue du navigateur | accepter, ou importer `root.crt` |
 
 ### Front controller : pas de 404 avec FrankenPHP
 

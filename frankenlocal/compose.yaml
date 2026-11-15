@@ -14,14 +14,17 @@ services:
     build: .
     ports:
       - "8092:80"
-      - "8443:443"
-      - "8443:443/udp"
+      - "8443:8443"
+      - "8443:8443/udp"
     environment:
       SERVER_NAME: "localhost:8443"          # HTTP simple sur le port 80, pas de redirection HTTPS
       DB_HOST: mariadb
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
       DB_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - data:/data
+      - config:/config
     depends_on:
       mariadb:
         condition: service_healthy   # attend que MySQL soit VRAIMENT prêt
