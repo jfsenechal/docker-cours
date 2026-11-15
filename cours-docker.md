@@ -13,6 +13,7 @@
 - [x] Leçon 6 — Docker Compose
 - [x] Leçon 7 — Dépannage : trouver pourquoi ça ne marche pas
 - [x] Leçon 8 — Taille des images et build multi-étapes
+- [x] Exemple — PHP dans Docker + MySQL du PC
 
 ---
 
@@ -539,6 +540,125 @@ Constat : `docker exec multi composer --version` → `executable file not found 
 
 ---
 
+## Exemple — PHP dans Docker + MySQL installé sur le PC
+
+Dossier : `mysqlhote/`. Cette fois, **pas de conteneur MySQL** : l'appli PHP (dans Docker) utilise le MariaDB déjà installé sur le PC.
+
+### Le piège n° 1 : `127.0.0.1` dans un conteneur
+
+Dans un conteneur, `localhost` / `127.0.0.1` = **le conteneur lui-même**, pas le PC. Il faut donc une autre adresse pour joindre l'hôte :
+
+```yaml
+services:
+  app:
+    build: .
+    ports:
+      - "8091:80"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # nom → IP du PC vue du conteneur (172.17.0.1)
+    environment:
+      DB_HOST: host.docker.internal
+```
+
+`host-gateway` est un mot spécial que Docker remplace par l'IP du PC sur le réseau `docker0` (`ip addr show docker0` → `172.17.0.1`).
+
+**`host-gateway` est réservé, `host.docker.internal` ne l'est pas.** `extra_hosts` ajoute simplement une ligne dans le fichier `/etc/hosts` du conteneur (l'annuaire « nom → IP » de Linux). Le nom à gauche est libre :
+
+```yaml
+extra_hosts:
+  - "monpc:host-gateway"         # nom inventé → IP du PC
+  - "api-test:192.168.1.50"      # une IP fixe marche aussi
+environment:
+  DB_HOST: monpc
+```
+
+```bash
+docker compose exec app cat /etc/hosts      # voir les lignes ajoutées
+# 172.17.0.1   monpc
+```
+
+Pourquoi tout le monde écrit `host.docker.internal` ? C'est le nom officiel de **Docker Desktop** (Mac/Windows), où il existe **automatiquement**. Sur Linux avec Docker Engine, il faut le déclarer soi-même (sans `extra_hosts` : `introuvable`). En le gardant, le même `compose.yaml` marche partout et le nom se comprend tout de suite.
+
+### Le piège n° 2 : MariaDB n'écoute que sur `127.0.0.1`
+
+Par défaut (`/etc/mysql/mariadb.conf.d/50-server.cnf`) : `bind-address = 127.0.0.1` → les connexions qui arrivent par `172.17.0.1` sont refusées (`Connection refused`, erreur 2002).
+
+```bash
+sudo sed -i 's/^bind-address.*/bind-address = 0.0.0.0/' /etc/mysql/mariadb.conf.d/50-server.cnf
+sudo systemctl restart mariadb
+ss -ltn | grep 3306          # doit afficher 0.0.0.0:3306
+```
+
+⚠️ `0.0.0.0` = MariaDB accepte les connexions de **toutes** les cartes réseau (Wi-Fi compris). Si le pare-feu `ufw` est actif, n'ouvrir le port 3306 **qu'aux réseaux Docker** : `sudo ufw allow from 172.16.0.0/12 to any port 3306` (et ne rien ouvrir d'autre pour 3306).
+
+### Le piège n° 3 : l'utilisateur MySQL doit être autorisé depuis le réseau Docker
+
+Un utilisateur `'x'@'localhost'` ne marche **que** depuis le PC. Le conteneur arrive avec une IP `172.x.x.x` :
+
+```sql
+-- sudo mysql
+CREATE DATABASE demo_hote;
+CREATE USER 'docker_user'@'172.%' IDENTIFIED BY 'le_mot_de_passe';
+GRANT ALL PRIVILEGES ON demo_hote.* TO 'docker_user'@'172.%';
+```
+
+Sinon : `[1130] Host '172.19.0.2' is not allowed to connect` → l'IP affichée dit exactement d'où vient le conteneur. (C'est `172.19.x` et pas `172.17.x` : Compose crée son propre réseau, `mysqlhote_default`.)
+
+Ne **pas** ouvrir `root` au réseau : un utilisateur dédié, limité à une seule base, suffit. Noms et mot de passe dans le `.env` :
+
+```
+DB_NAME=titi
+DB_USER=docker_user
+DB_PASSWORD=...
+```
+
+### Vécu : conteneur « Up » mais port 8091 fermé
+
+`docker compose ps` → colonne PORTS vide. Le conteneur n'était relié à **aucun réseau** (raté au démarrage) :
+
+```bash
+docker inspect mysqlhote-app-1 --format '{{json .NetworkSettings.Networks}}'   # {} = aucun réseau
+docker compose up -d --force-recreate                                          # le recrée proprement
+```
+
+### Lancer
+
+```bash
+cd mysqlhote
+cp .env.example .env         # puis mettre le vrai mot de passe
+docker compose up -d --build
+# http://localhost:8091
+```
+
+### Tester la connexion depuis le conteneur
+
+```bash
+docker compose exec app getent hosts host.docker.internal   # → 172.17.0.1
+docker compose exec app php -r 'new PDO("mysql:host=host.docker.internal", "docker_user", getenv("DB_PASSWORD")); echo "OK\n";'
+```
+
+### Alternative : `network_mode: host`
+
+```yaml
+services:
+  app:
+    build: .
+    network_mode: host       # le conteneur partage le réseau du PC
+    environment:
+      DB_HOST: 127.0.0.1     # ici 127.0.0.1 = le PC !
+```
+
+Plus simple (pas besoin de toucher `bind-address` ni l'utilisateur), mais : Linux uniquement, `ports:` est ignoré (Apache écoute directement sur le port 80 du PC → conflit si un Apache local tourne déjà), et on perd l'isolation réseau.
+
+| | Conteneur MySQL (leçon 6) | MySQL du PC |
+|---|---|---|
+| Adresse | nom du service (`db`) | `host.docker.internal` |
+| Config MySQL | automatique (`MYSQL_*`) | à la main (`bind-address`, utilisateur `@'172.%'`) |
+| Portable sur une autre machine | ✅ | ❌ dépend du PC |
+| Quand l'utiliser | nouveau projet | base existante, migration progressive vers Docker |
+
+---
+
 ## Aide-mémoire global
 
 ```bash
@@ -568,4 +688,7 @@ docker compose stop | start | down | down -v (⚠️ volumes supprimés)
 # Dépanner : état → logs → dedans → config
 docker compose ps -a | logs --tail 50 S | exec S bash | config
 docker stats | docker system df | docker system prune
+
+# Joindre le PC depuis un conteneur
+extra_hosts: ["host.docker.internal:host-gateway"]  → DB_HOST: host.docker.internal
 ```
