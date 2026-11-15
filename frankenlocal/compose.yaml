@@ -1,0 +1,30 @@
+services:
+  mariadb:
+    image: mariadb:11.4
+    environment:
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
+  app:
+    build: .
+    ports:
+      - "8092:80"
+    volumes:
+      - ./src:/app/public
+    environment:
+      SERVER_NAME: ":80"          # HTTP simple sur le port 80, pas de redirection HTTPS
+      DB_HOST: mariadb
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      mariadb:
+        condition: service_healthy   # attend que MySQL soit VRAIMENT prêt
+
+volumes:
+  mariadb_data:
