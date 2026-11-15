@@ -14,8 +14,6 @@ services:
     build: .
     ports:
       - "8092:80"
-    volumes:
-      - ./src:/app/public
     environment:
       SERVER_NAME: ":80"          # HTTP simple sur le port 80, pas de redirection HTTPS
       DB_HOST: mariadb
