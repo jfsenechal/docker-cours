@@ -14,6 +14,7 @@
 - [x] Leçon 7 — Dépannage : trouver pourquoi ça ne marche pas
 - [x] Leçon 8 — Taille des images et build multi-étapes
 - [x] Exemple — PHP dans Docker + MySQL du PC
+- [x] Exemple — FrankenPHP + MariaDB en conteneurs (dev/prod avec override)
 
 ---
 
@@ -659,6 +660,124 @@ Plus simple (pas besoin de toucher `bind-address` ni l'utilisateur), mais : Linu
 
 ---
 
+## Exemple — FrankenPHP + MariaDB, tout en conteneurs
+
+Dossier : `frankenlocal/`. Deux services dans un `compose.yaml` : **un processus principal par conteneur**, donc jamais FrankenPHP et MariaDB dans le même conteneur.
+
+### Le `Dockerfile`
+
+```dockerfile
+FROM dunglas/frankenphp:1-php8.5          # version fixée, pas :latest
+RUN install-php-extensions pdo_mysql      # outil de l'image FrankenPHP (≠ docker-php-ext-install)
+COPY src/ public                          # → /app/public (relatif au WORKDIR /app de l'image)
+EXPOSE 80
+```
+
+Différences avec `php:apache` :
+
+| | `php:8.5-apache` | `dunglas/frankenphp` |
+|---|---|---|
+| Ajouter une extension | `docker-php-ext-install` | `install-php-extensions` |
+| Dossier web | `/var/www/html` (chemin absolu) | `/app/public` = `WORKDIR /app` + `public/` (chemin **relatif**) |
+| HTTPS | non | automatique pour `localhost` → `SERVER_NAME: ":80"` pour du HTTP simple |
+
+### Le `compose.yaml` (base commune, utilisée aussi en prod)
+
+```yaml
+services:
+  mariadb:
+    image: mariadb:11.4
+    environment:
+      MARIADB_DATABASE: ${DB_NAME}
+      MARIADB_USER: ${DB_USER}
+      MARIADB_PASSWORD: ${DB_PASSWORD}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]   # script fourni par l'image
+    # pas de "ports:" : FrankenPHP passe par le réseau Compose
+
+  app:
+    build: .
+    ports:
+      - "8092:80"
+    environment:
+      SERVER_NAME: ":80"       # lu par le Caddyfile de l'image : {$SERVER_NAME:localhost}
+      DB_HOST: mariadb         # nom du service, PAS 127.0.0.1
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+
+volumes:
+  mariadb_data:
+```
+
+L'utilisateur est créé en `shop@%` : le client arrive d'un autre conteneur dont l'IP change à chaque recréation, l'image ne peut pas la deviner. Sans `ports:`, MariaDB n'est joignable que depuis le réseau Compose.
+
+### Dev / prod : `compose.override.yaml`
+
+Si `compose.override.yaml` existe à côté de `compose.yaml`, Compose **fusionne les deux automatiquement** (comme un calque). On n'y écrit **que ce qu'on ajoute** :
+
+```yaml
+# compose.override.yaml — dev uniquement
+services:
+  app:                         # même nom = même service
+    volumes:
+      - ./src:/app/public      # code modifiable en direct
+```
+
+| | Dev | Prod |
+|---|---|---|
+| Commande | `docker compose up -d` | `docker compose -f compose.yaml up -d --build` |
+| Le code vient de | `./src` (bind mount) | l'image (`COPY` au build) |
+| Ajouter `src/contact.php` | visible tout de suite | `up -d --build` (`build` seul ne recrée pas le conteneur) |
+
+```bash
+docker compose config | grep -A3 'type: bind'                 # voir le résultat de la fusion
+docker compose -f compose.yaml config | grep -A3 'type: bind' # sans l'override
+```
+
+### Pièges rencontrés
+
+| Symptôme | Cause | Solution |
+|---|---|---|
+| `bind: address already in use` (port 3306) | le MariaDB du PC occupe déjà 3306 | pas de `ports:`, ou `"127.0.0.1:3307:3306"` |
+| `ERR_SSL_PROTOCOL_ERROR` sur `https://localhost:8092` | le port 80 du conteneur parle HTTP, pas HTTPS | `http://localhost:8092` |
+| `308 Permanent Redirect` → `https://localhost/` | HTTPS automatique de FrankenPHP | `SERVER_NAME: ":80"` |
+| `SERVER_NAME` sans effet | ajouté dans le `compose.yaml` d'**un autre projet** | `docker compose exec app printenv SERVER_NAME` |
+| `404` alors que `index.php` est bien là | `WORKDIR /app/public` + root relatif `public/` → `/app/public/public/` | garder `WORKDIR /app` |
+| Marche en dev, page vide en prod | `COPY src/ /public` (chemin absolu → `/public`), caché par le bind mount | `COPY src/ public` ; tester `docker run --rm image ls /app/public` |
+| `service "app" depends on undefined service "db"` | nom copié d'un autre exemple | `docker compose config --quiet` après chaque modification |
+| Mot de passe root inchangé | variables `MARIADB_*` lues seulement si le volume est vide | `docker compose down -v` (⚠️ données perdues) |
+| `curl` n'affiche rien | une redirection n'a pas de corps | `curl -i` (en-têtes), `curl -L` (suivre) |
+
+### Front controller : pas de 404 avec FrankenPHP
+
+`php_server` : si le fichier demandé existe → on l'exécute, sinon → **`index.php`**. C'est ce qu'attendent Laravel et Symfony (`/contact` est géré par l'appli). Conséquence : un fichier manquant renvoie **200 avec la page d'accueil**, pas 404. Vérifier avec `docker compose exec app ls public`.
+
+### ⚠️ Projets dans `/var/www` + serveur web local = `.env` téléchargeable
+
+Le FrankenPHP **du PC** sert tout `/var/www` : `https://localhost/docker/frankenlocal/.env` → **200**, mot de passe lisible. Bloqué dans le Caddyfile local (bloc `localhost` et bloc `https://`) :
+
+```caddy
+@secrets path */.env */.git/*
+respond @secrets 404
+```
+
+`sudo systemctl reload frankenphp`, puis vérifier : `curl -sk -o /dev/null -w '%{http_code}' https://localhost/docker/frankenlocal/.env` → `404`. Un mot de passe exposé se **change**.
+
+### Au passage : même version ≠ même PHP
+
+Sur le PC, `php -v` (`/usr/bin/php-zts`) et FrankenPHP (`/usr/bin/frankenphp`, PHP intégré) affichent tous les deux 8.5.12, mais ce sont deux programmes : extensions et `php.ini` peuvent différer. Dans un conteneur, il n'y a qu'un seul PHP.
+
+Sur le PC aussi, `mysql -h localhost` passe par le **socket Unix** (fichier `/run/mysqld/mysqld.sock`), `-h 127.0.0.1` par **TCP** (port 3306). Dans un conteneur, seul TCP est possible.
+
+---
+
 ## Aide-mémoire global
 
 ```bash
@@ -684,6 +803,8 @@ docker rm [-f] N | docker rmi image | docker volume rm V (⚠️ données perdue
 # Compose (dans le dossier du compose.yaml)
 docker compose up -d [--build] | ps | logs -f S | exec S cmd
 docker compose stop | start | down | down -v (⚠️ volumes supprimés)
+docker compose config --quiet                    # valider le fichier avant de lancer
+docker compose -f compose.yaml up -d --build     # prod : sans compose.override.yaml
 
 # Dépanner : état → logs → dedans → config
 docker compose ps -a | logs --tail 50 S | exec S bash | config
